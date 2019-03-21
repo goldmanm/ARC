@@ -72,7 +72,7 @@ output_filename = {'gaussian': 'input.log',
                    'molpro': 'input.out',
 }
 
-default_levels_of_theory = {'conformer': 'b97-d3/6-311+g(d,p)',
+default_levels_of_theory = {'conformer': 'b3lyp/6-31+g(d,p)',
                             'ts_guesses': 'b3lyp/6-31+g(d,p)',  # used for IRC as well
                             'opt': 'wb97xd/6-311++g(d,p)',
                             'freq': 'wb97xd/6-311++g(d,p)',  # should be the same level as opt
