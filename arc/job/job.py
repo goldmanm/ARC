@@ -80,7 +80,7 @@ class Job(object):
                  charge=0, conformer=-1, fine=False, shift='', software=None, is_ts=False, scan='', pivots=None,
                  memory=1500, comments='', trsh='', scan_trsh='', ess_trsh_methods=None, initial_trsh=None, job_num=None,
                  job_server_name=None, job_name=None, job_id=None, server=None, initial_time=None, occ=None,
-                 max_job_time=120, scan_res=None):
+                 max_job_time=120, scan_res=None, checkfile=None):
         self.project = project
         self.settings=settings
         self.initial_time = initial_time
@@ -101,6 +101,7 @@ class Job(object):
         self.scan_trsh = scan_trsh
         self.scan_res = scan_res if scan_res is not None else rotor_scan_resolution
         self.max_job_time = max_job_time
+        self.checkfile = checkfile
         job_types = ['conformer', 'opt', 'freq', 'optfreq', 'sp', 'composite', 'scan', 'gsm', 'irc', 'ts_guess']
         # the 'conformer' job type is identical to 'opt', but we differentiate them to be identifiable in Scheduler
         if job_type not in job_types:
@@ -564,6 +565,8 @@ $end
             f.write(self.input)
         if self.settings['ssh']:
             self._upload_input_file()
+            if os.path.isfile(self.checkfile):
+                self._upload_check_file(local_check_file_path=self.checkfile)
 
     def _upload_submit_file(self):
         ssh = SSH_Client(self.server)
@@ -578,6 +581,14 @@ $end
         ssh.upload_file(remote_file_path=remote_file_path, file_string=self.input)
         self.initial_time = ssh.get_last_modified_time(remote_file_path=remote_file_path)
 
+    def _upload_check_file(self, local_check_file_path=None):
+        ssh = SSH_Client(self.server)
+        remote_check_file_path = os.path.join(self.remote_path, 'check.chk')
+        local_check_file_path = os.path.join(self.local_path, 'check.chk') if remote_check_file_path is None\
+            else local_check_file_path
+        if os.path.isfile(local_check_file_path) and self.software.lower() == 'gaussian':
+            ssh.upload_file(remote_file_path=remote_check_file_path, local_file_path=local_check_file_path)
+
     def _download_output_file(self):
         ssh = SSH_Client(self.server)
         remote_file_path = os.path.join(self.remote_path, output_filename[self.software])
@@ -587,6 +598,12 @@ $end
         self.determine_run_time()
         if not os.path.isfile(local_file_path):
             raise JobError('output file for {0} was not downloaded properly'.format(self.job_name))
+        if self.software.lower() == 'gaussian':
+            # also download the check file
+            remote_check_file_path = os.path.join(self.remote_path, 'check.chk')
+            local_check_file_path = os.path.join(self.local_path, 'check.chk')
+            ssh.download_file(remote_file_path=remote_check_file_path, local_file_path=local_check_file_path)
+
 
     def run(self):
         if self.fine:
@@ -628,7 +645,7 @@ $end
         ess_status = ''
         if server_status == 'done':
             try:
-                ess_status = self._check_job_ess_status()
+                ess_status = self._check_job_ess_status()  # also downloads output file
             except IOError:
                 logging.error('Got an IOError when trying to download output file for job {0}.'.format(self.job_name))
                 raise
@@ -650,10 +667,13 @@ $end
         Possible statuses: `initializing`, `running`, `errored: {error type / message}`, `unconverged`, `done`
         """
         output_path = os.path.join(self.local_path, 'output.out')
+        check_path = os.path.join(self.local_path, 'check.chk')
         if os.path.exists(output_path):
             os.remove(output_path)
+        if os.path.exists(check_path):
+            os.remove(check_path)
         if self.settings['ssh']:
-            self._download_output_file()
+            self._download_output_file()  # also downloads the Gaussian check file if exists
         with open(output_path, 'rb') as f:
             lines = f.readlines()
             if self.software == 'gaussian':
