@@ -464,12 +464,17 @@ class Scheduler(object):
         pivots = pivots if pivots is not None else list()
         species = self.species_dict[label]
         memory = memory if memory is not None else self.memory
+        checkfile = None
+        if self.species_dict[label].checkfile is not None:
+            checkfile = self.species_dict[label].checkfile
+        elif self.species_dict[label].most_stable_conformer is not None:
+            checkfile = self.species_dict[label].conformer_checkfiles[self.species_dict[label].most_stable_conformer]
         job = Job(project=self.project, settings=self.settings, species_name=label, xyz=xyz, job_type=job_type,
                   level_of_theory=level_of_theory, multiplicity=species.multiplicity, charge=species.charge, fine=fine,
                   shift=shift, software=software, is_ts=species.is_ts, memory=memory, trsh=trsh,
                   ess_trsh_methods=ess_trsh_methods, scan=scan, pivots=pivots, occ=occ, initial_trsh=self.initial_trsh,
                   project_directory=self.project_directory, max_job_time=self.max_job_time, scan_trsh=scan_trsh,
-                  scan_res=scan_res, conformer=conformer)
+                  scan_res=scan_res, conformer=conformer, checkfile=checkfile)
         if conformer < 0:
             # this is NOT a conformer job
             self.running_jobs[label].append(job.job_name)  # mark as a running job
@@ -520,6 +525,14 @@ class Scheduler(object):
                 else:
                     self.species_dict[label].run_time += job.run_time
             self.save_restart_dict()
+            if job.software.lower() == 'gaussian' and os.path.isfile(os.path.join(job.local_path, 'check.chk'))\
+                    and job.job_type in ['conformer', 'opt', 'optfreq', 'composite']:
+                check_path = os.path.join(job.local_path, 'check.chk')
+                if os.path.isfile(check_path):
+                    if job.job_type == 'conformer':
+                        self.species_dict[label].conformer_checkfiles[job.conformer] = check_path
+                    else:
+                        self.species_dict[label].checkfile = check_path
             return True
 
     def run_conformer_jobs(self):
@@ -723,6 +736,7 @@ class Scheduler(object):
                     xyzs.append(None)
                 else:
                     xyzs.append(get_xyz_string(xyz=coord, number=number))
+            xyzs_in_original_order = xyzs
             energies, xyzs = (list(t) for t in zip(*sorted(zip(self.species_dict[label].conformer_energies, xyzs))))
             smiles_list = list()
             for xyz in xyzs:
@@ -793,6 +807,7 @@ class Scheduler(object):
                              ' optimization.'.format(label))
                 conformer_xyz = xyzs[0]
             self.species_dict[label].initial_xyz = conformer_xyz
+            self.species_dict[label].most_stable_conformer = xyzs_in_original_order.index(conformer_xyz)
 
     def determine_most_likely_ts_conformer(self, label):
         """
