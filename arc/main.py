@@ -84,7 +84,7 @@ class ARC(object):
                  ts_guess_level='', fine=True, generate_conformers=True, scan_rotors=True, use_bac=True,
                  model_chemistry='', ess_settings=None, initial_trsh=None, t_min=None, t_max=None, t_count=None,
                  verbose=logging.INFO, project_directory=None, max_job_time=120, allow_nonisomorphic_2d=False,
-                 job_memory=1500):
+                 job_memory=15000):
 
         self.__version__ = '1.0.0'
         self.verbose = verbose
@@ -252,7 +252,7 @@ class ARC(object):
                     # This is a composite method
                     self.scan_level = default_levels_of_theory['scan_for_composite'].lower()
                     logging.info('Using default level {0} for scan calculations after composite jobs'.format(
-                        self.freq_level))
+                        self.scan_level))
             else:
                 self.scan_level = ''
 
