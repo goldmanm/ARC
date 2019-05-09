@@ -9,6 +9,7 @@ from __future__ import (absolute_import, division, print_function, unicode_liter
 import os
 import logging
 import numpy as np
+import math
 import datetime
 
 from rdkit import Chem
@@ -1040,6 +1041,42 @@ class ARCSpecies(object):
             rotrelaxcollnum=2,  # rotational relaxation collision number at 298 K
             comment=str(comment)
         )
+
+    def determine_radius(self):
+        """
+        Determine the largest distance from the coordinate system origin attributed to one of the molecule's
+        atoms in 3D space
+        """
+        index_max_r = 0
+        conf = self.conformers[0] if self.conformers else None
+        xyz = self.final_xyz or self.initial_xyz or conf
+        if xyz is None:
+            raise SpeciesError('Could not determine species {0} radius without xyz'.format(self.label))
+        _, _, x, y, z = get_xyz_matrix(xyz)
+        if self.number_of_atoms > 1:
+            for i, _ in enumerate(x):
+                if x[i] ** 2 + y[i] ** 2 + z[i] ** 2 \
+                        > x[index_max_r] ** 2 + y[index_max_r] ** 2 + z[index_max_r] ** 2:
+                    index_max_r = i
+            return (x[index_max_r] ** 2 + y[index_max_r] ** 2 + z[index_max_r] ** 2) ** 0.5
+        else:
+            return 0
+
+    def determine_onedmin_radii(self, bath_gas):
+        """
+        Determine r_min and r_max for the OneDMin scan
+        Assumes that the species is close to a sphere
+        """
+        if bath_gas not in ['He', 'Ne', 'Ar', 'Kr', 'H2', 'N2', 'O2']:
+            raise SpeciesError('Unknown bath gas. Should be either He, Ne, Ar, Kr, H2, N2, or O2, '
+                               'got {0}'.format(bath_gas))
+        bath_gas_radii_dict = {'He': 1.40, 'Ne': 1.54, 'Ar': 1.88, 'Kr': 2.0,
+                               'H2': 1.70, 'N2': 1.95, 'O2': 1.88}  # in Angstrom
+        bath_gas_r = int(math.ceil(bath_gas_radii_dict[bath_gas]))
+        species_radius = int(math.ceil(self.determine_radius()))
+        r_min = species_radius + bath_gas_r
+        r_max = r_min + 3
+        return r_min, r_max
 
 
 class TSGuess(object):
