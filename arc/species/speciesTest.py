@@ -88,6 +88,25 @@ class TestARCSpecies(unittest.TestCase):
                           H      -0.50949998    0.00000000    0.00000000""")
         cls.spc9 = ARCSpecies(label=str('NH2(S)'), adjlist=nh_s_adj, xyz=nh_s_xyz, multiplicity=1, charge=0)
 
+        ibupr_s_xyz = str("""O 0.54819 -0.55037 -2.56728
+O 0.46348 0.00016 -1.37397
+H -0.83592 -1.39543 -0.58315
+H -0.12267 1.83115 -0.48611
+H 0.8984 -1.77337 -0.40958
+C 0.14729 -0.98465 -0.3356
+O -0.3052 2.06408 0.43088
+H -1.78927 0.61535 0.69613
+C 0.15157 -0.29932 1.0264
+C -0.80053 0.9088 1.08562
+H 1.16121 0.07967 1.21981
+H -1.23723 -1.69574 1.97576
+H 0.45172 -2.21007 2.05236
+C -0.20888 -1.34028 2.09731
+H -0.93875 1.19958 2.12966
+H -0.12147 -0.9075 3.09612
+""")
+        cls.spc10 = ARCSpecies(label=str('C4H9O3'), smiles = str('OCC(C)CO[O]'), xyz=ibupr_s_xyz, multiplicity=2, charge=0)
+
     def test_conformers(self):
         """Test conformer generation"""
         self.spc1.generate_conformers()  # vinoxy has two res. structures, each is assigned two conformers (RDkit/ob)
@@ -764,9 +783,9 @@ H       1.32129900    0.71837500    0.38017700
 
     def test_determine_onedmin_radii(self):
         """Test determining the OneDMin radii"""
-        bath_gases = ['H2', 'N2', 'Ar', 'H2']
-        expected_rs = [(3, 6), (4, 7), (4, 7), (3, 6)]
-        for i, spc in enumerate([self.spc2, self.spc6, self.spc8, self.spc9]):
+        bath_gases = ['H2', 'N2', 'Ar', 'H2', 'N2']
+        expected_rs = [(3, 6), (4, 7), (4, 7), (3, 6), (4,7)]
+        for i, spc in enumerate([self.spc2, self.spc6, self.spc8, self.spc9, self.spc10]):
             self.assertEqual(spc.determine_onedmin_radii(bath_gas=bath_gases[i]), expected_rs[i])
 
 
